@@ -1,18 +1,242 @@
-/* DOM elements */
+// L'Oréal Beauty Advisor chatbot (no external API version)
+
+// We will NOT call OpenAI here.
+// Instead, we'll use simple rule-based responses so the chatbot still works
+// and behaves like a L'Oréal-focused advisor.
+
+const chatWindow = document.getElementById("chatWindow");
 const chatForm = document.getElementById("chatForm");
 const userInput = document.getElementById("userInput");
-const chatWindow = document.getElementById("chatWindow");
 
-// Set initial message
-chatWindow.textContent = "👋 Hello! How can I help you today?";
+// Store conversation history (for nicer replies, even without real AI)
+const conversationHistory = [];
 
-/* Handle form submit */
-chatForm.addEventListener("submit", (e) => {
-  e.preventDefault();
+// Simple helper to format time like "3:45 PM"
+function formatTime(date = new Date()) {
+  const hours = date.getHours();
+  const minutes = date.getMinutes().toString().padStart(2, "0");
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const normalizedHours = hours % 12 || 12;
+  return `${normalizedHours}:${minutes} ${ampm}`;
+}
 
-  // When using Cloudflare, you'll need to POST a `messages` array in the body,
-  // and handle the response using: data.choices[0].message.content
+function scrollChatToBottom() {
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+}
 
-  // Show message
-  chatWindow.innerHTML = "Connect to the OpenAI API for a response!";
+// Create and add a message bubble to the chat
+function addMessageBubble(text, sender = "bot") {
+  const messageWrapper = document.createElement("div");
+  messageWrapper.classList.add("message", sender);
+
+  const label = document.createElement("div");
+  label.classList.add("message-label");
+  label.textContent = sender === "user" ? "You" : "Beauty Advisor";
+
+  const body = document.createElement("div");
+  body.classList.add("message-body");
+  body.textContent = text;
+
+  const time = document.createElement("div");
+  time.classList.add("message-time");
+  time.textContent = formatTime();
+
+  messageWrapper.appendChild(label);
+  messageWrapper.appendChild(body);
+  messageWrapper.appendChild(time);
+
+  chatWindow.appendChild(messageWrapper);
+  scrollChatToBottom();
+}
+
+// Typing indicator (just visual, no real delay)
+let typingElement = null;
+
+function showTypingIndicator() {
+  if (typingElement) return;
+
+  const wrapper = document.createElement("div");
+  wrapper.classList.add("message", "bot");
+
+  const label = document.createElement("div");
+  label.classList.add("message-label");
+  label.textContent = "Beauty Advisor";
+
+  const body = document.createElement("div");
+  body.classList.add("message-body");
+
+  const typing = document.createElement("div");
+  typing.classList.add("typing-indicator");
+
+  for (let i = 0; i < 3; i++) {
+    const dot = document.createElement("span");
+    dot.classList.add("typing-dot");
+    typing.appendChild(dot);
+  }
+
+  body.appendChild(typing);
+
+  const time = document.createElement("div");
+  time.classList.add("message-time");
+  time.textContent = "typing…";
+
+  wrapper.appendChild(label);
+  wrapper.appendChild(body);
+  wrapper.appendChild(time);
+
+  chatWindow.appendChild(wrapper);
+  typingElement = wrapper;
+  scrollChatToBottom();
+}
+
+function hideTypingIndicator() {
+  if (typingElement && typingElement.parentNode) {
+    typingElement.parentNode.removeChild(typingElement);
+  }
+  typingElement = null;
+}
+
+// ---- "Fake AI" logic: generate a L'Oréal-style answer locally ----
+
+function generateLorealReply(userMessage) {
+  const text = userMessage.toLowerCase();
+
+  // Off-topic filter: if it clearly isn’t about beauty/L'Oréal
+  const beautyKeywords = [
+    "skin",
+    "skincare",
+    "hair",
+    "makeup",
+    "foundation",
+    "mascara",
+    "concealer",
+    "loreal",
+    "l'oréal",
+    "routine",
+    "serum",
+    "moisturizer",
+    "spf",
+    "fragrance",
+    "perfume",
+    "lipstick",
+  ];
+
+  const isBeautyRelated = beautyKeywords.some((word) => text.includes(word));
+
+  if (!isBeautyRelated) {
+    return (
+      "I'm here as your L'Oréal Beauty Advisor, so I can only help with " +
+      "beauty questions—like skincare, makeup, haircare, or fragrances. " +
+      "Could you ask me something related to L'Oréal products or routines?"
+    );
+  }
+
+  // Very simple "rules" based on words in the question
+  if (text.includes("dry skin")) {
+    return (
+      "For dry skin, I recommend a gentle, hydrating routine with L'Oréal Paris:\n\n" +
+      "• Start with a creamy cleanser that doesn’t strip your skin.\n" +
+      "• Use a hydrating serum with ingredients like hyaluronic acid.\n" +
+      "• Follow with a rich moisturizer to lock in moisture.\n" +
+      "• In the morning, always finish with an SPF.\n\n" +
+      "Focus on products labeled ‘hydrating’ or ‘for dry/sensitive skin’ and avoid harsh scrubs."
+    );
+  }
+
+  if (text.includes("oily skin")) {
+    return (
+      "For oily skin, try a balanced routine that controls shine without over-drying:\n\n" +
+      "• Use a gentle foaming cleanser.\n" +
+      "• Apply a lightweight, oil-free serum.\n" +
+      "• Choose a non-comedogenic moisturizer (gel textures work well).\n" +
+      "• Finish with a matte-finish SPF during the day.\n\n" +
+      "Look for L'Oréal products labeled ‘matte’, ‘oil-control’, or ‘non-comedogenic’."
+    );
+  }
+
+  if (
+    text.includes("acne") ||
+    text.includes("breakouts") ||
+    text.includes("pimples")
+  ) {
+    return (
+      "For breakout-prone skin, consistency and gentle care are key:\n\n" +
+      "• Use a mild cleanser, morning and night.\n" +
+      "• Consider a serum or treatment with ingredients like salicylic acid.\n" +
+      "• Keep your moisturizer lightweight but don’t skip it.\n" +
+      "• Avoid picking at blemishes and always remove makeup before bed.\n\n" +
+      "If your acne is severe or painful, it’s best to check in with a dermatologist."
+    );
+  }
+
+  if (text.includes("foundation")) {
+    return (
+      "For choosing a L'Oréal foundation shade:\n\n" +
+      "• Identify your undertone: warm (golden/olive), cool (pink/rosy), or neutral.\n" +
+      "• Match the foundation to your neck to avoid a line at the jaw.\n" +
+      "• For dry skin, look for hydrating or radiant finishes.\n" +
+      "• For oily skin, go for matte or long-wear formulas.\n\n" +
+      "If you tell me your skin type and the finish you like, I can suggest a routine direction!"
+    );
+  }
+
+  if (text.includes("hair") && text.includes("damaged")) {
+    return (
+      "For damaged hair, a repair-focused routine can really help:\n\n" +
+      "• Use a repairing shampoo and conditioner.\n" +
+      "• Add a weekly hair mask or deep treatment.\n" +
+      "• Limit heat styling, and always use a heat protectant when you do.\n" +
+      "• Avoid over-washing; 2–3 times per week is often enough.\n\n" +
+      "Look for L'Oréal lines that mention ‘repair’, ‘strengthening’, or ‘bond-building’ on the label."
+    );
+  }
+
+  if (text.includes("spf") || text.includes("sunscreen")) {
+    return (
+      "SPF is a must in any L'Oréal skincare routine:\n\n" +
+      "• Use SPF every morning, even on cloudy days.\n" +
+      "• Apply it as the last step of your routine before makeup.\n" +
+      "• Use enough—usually a generous layer over the entire face, ears, and neck.\n\n" +
+      "Daily SPF helps protect your skin from sun damage and supports all your other skincare goals."
+    );
+  }
+
+  // Default reply if nothing specific matches
+  return (
+    "Great question! As your L'Oréal Beauty Advisor, I can help you with skincare routines, " +
+    "haircare tips, makeup suggestions, and how to build a routine that fits your skin or hair type.\n\n" +
+    "Try asking something like:\n" +
+    "• “What L'Oréal skincare routine do you recommend for dry skin?”\n" +
+    "• “How do I choose the right foundation shade?”\n" +
+    "• “What’s a simple haircare routine for damaged hair?”"
+  );
+}
+
+// Handle form submission
+chatForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+
+  const userMessage = userInput.value.trim();
+  if (!userMessage) return;
+
+  userInput.value = "";
+  addMessageBubble(userMessage, "user");
+  conversationHistory.push({ role: "user", content: userMessage });
+
+  showTypingIndicator();
+
+  setTimeout(() => {
+    const reply = generateLorealReply(userMessage);
+    hideTypingIndicator();
+    addMessageBubble(reply, "bot");
+    conversationHistory.push({ role: "assistant", content: reply });
+  }, 500); // short delay to feel natural
+});
+
+// Greet the user on page load
+window.addEventListener("DOMContentLoaded", () => {
+  addMessageBubble(
+    "Bonjour! I'm your L'Oréal Beauty Advisor. ✨ Ask me about skincare routines, makeup shades, haircare tips, or which L'Oréal products might work best for you.",
+    "bot"
+  );
 });
